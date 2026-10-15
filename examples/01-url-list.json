@@ -1,0 +1,8 @@
+{
+  "urls": [
+    "https://www.w3.org/Icons/w3c_home.png",
+    "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf"
+  ],
+  "zipOutput": true,
+  "maxRetries": 2
+}

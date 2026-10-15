@@ -1,0 +1,7 @@
+{
+  "datasetId": "REPLACE_WITH_YOUR_DATASET_ID",
+  "urlField": "imageUrl",
+  "fileNameField": "sku",
+  "zipOutput": true,
+  "maxRetries": 2
+}
