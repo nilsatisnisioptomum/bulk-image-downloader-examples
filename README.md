@@ -33,3 +33,10 @@ Adjacent Apify Store query **“bulk image downloader”** is dominated by actor
 ## Licence
 
 MIT for the example JSON and this README. The Actor itself is licensed on Apify.
+
+## Code: call it from your own scripts
+
+- Python – URL list → `files.zip`: [`python/download_images_to_zip.py`](python/download_images_to_zip.py)
+- Node – scraper dataset → ZIP named by SKU: [`node/download_from_scraper_dataset.js`](node/download_from_scraper_dataset.js)
+
+Both use the official Apify API client and the [Bulk Image Downloader Actor](https://apify.com/chris_elder/bulk-file-downloader). Failed downloads are not charged.
