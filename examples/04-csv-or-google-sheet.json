@@ -1,0 +1,6 @@
+{
+  "csvUrl": "https://raw.githubusercontent.com/nilsatisnisioptomum/bulk-image-downloader-examples/main/examples/shopify-products-sample.csv",
+  "fileNameField": "Handle",
+  "createZip": true,
+  "maxFiles": 10
+}
