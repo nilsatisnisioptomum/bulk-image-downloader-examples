@@ -34,6 +34,8 @@ Adjacent Apify Store query **“bulk image downloader”** is dominated by actor
 
 MIT for the example JSON and this README. The Actor itself is licensed on Apify.
 
+- [`examples/05-every-image-on-pages.json`](examples/05-every-image-on-pages.json) – download every image on one or more web pages (page mode)
+
 ## Code: call it from your own scripts
 
 - Python – URL list → `files.zip`: [`python/download_images_to_zip.py`](python/download_images_to_zip.py)

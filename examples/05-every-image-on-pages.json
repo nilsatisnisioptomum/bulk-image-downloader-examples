@@ -1,0 +1,9 @@
+{
+  "pageUrls": [
+    "https://books.toscrape.com/",
+    "https://books.toscrape.com/catalogue/a-light-in-the-attic_1000/index.html"
+  ],
+  "onlyImages": true,
+  "maxImagesPerPage": 50,
+  "createZip": true
+}
