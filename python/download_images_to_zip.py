@@ -12,7 +12,7 @@ import os, sys, urllib.request
 from apify_client import ApifyClient
 
 urls = [l.strip() for l in open(sys.argv[1]) if l.strip().startswith("http")] if len(sys.argv) > 1 else [
-    "https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png",
+    "https://www.w3.org/Icons/w3c_home.png",
     "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
 ]
 

@@ -1,5 +1,5 @@
 Handle,Title,Image Src,Image Position
-google-logo,Google logo,https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png,1
-google-logo,,https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_272x92dp.png,2
+w3c-icons,W3C icons,https://www.w3.org/Icons/w3c_home.png,1
+w3c-icons,,https://www.w3.org/Icons/valid-html401.png,2
 sample-pdf,"Sample, PDF",https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf,1
 no-image,No image row,,
