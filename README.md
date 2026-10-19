@@ -85,6 +85,8 @@ Offline verification: `npm test` and `python3 -m unittest discover -s test -p 't
 
 ## How to run
 
+**Console workaround for Actor 0.0.24:** When supplying `datasetId`, `csvUrl` or `pageUrls` in Apify Console, clear unchanged demo entries in **File URLs**. In JSON view, use `"urls": []` if you intend no direct file URLs; retain any explicit URLs you genuinely want. Demo entries can consume `maxFiles`, and successful demo downloads trigger download events. The dataset API recipe in this repo already omits `urls`; Console prefills are not added to its API input.
+
 1. Open [Bulk File & Image Downloader](https://apify.com/chris_elder/bulk-file-downloader) (free Apify account is enough).
 2. Paste one of the example JSON files into the Actor input (or merge fields into the form).
 3. Run. Download `OUTPUT.zip` from the Key-Value store when enabled.
