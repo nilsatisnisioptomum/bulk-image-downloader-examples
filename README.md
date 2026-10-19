@@ -14,6 +14,12 @@ Downloads files from a URL list, a CSV / Google Sheet or an Apify dataset into t
 
 Apify runs are billable. The Store currently lists per-successful-download pricing **and an Actor-start charge**; unsuccessful file downloads do not incur a successful-download event, but a failed run is not necessarily free. Review the [live pricing](https://apify.com/chris_elder/bulk-file-downloader/pricing) before running. A free Apify account is enough to get started; free account does not mean unlimited free runs.
 
+## Prepare a local CSV without uploading it
+
+Have image links in a CSV on your computer? Use the free [image download planner](https://gptshopltd.com/image-download-plan/?utm_source=github&utm_medium=readme&utm_campaign=image-download-plan) to choose the image and filename columns, review the download plan, and save a separate image-job CSV or exact Actor input JSON. Your CSV contents stay in your browser; this is not a replacement Shopify import file.
+
+The planner checks URL format, not whether links are reachable or return images. It does not download images or start an Actor run. When you are ready to use the generated input, open the downloader on your own Apify account and review its [current pricing](https://apify.com/chris_elder/bulk-file-downloader/pricing), Actor-start charge and **Max cost per run** before starting.
+
 ## First ZIP from your scraper dataset
 
 Requires **Node.js 20+**, no package install. From the repository root:
