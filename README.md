@@ -56,7 +56,7 @@ If it fails, inspect the **existing run** in Console before retrying. The script
 | Failed / timed-out run | Run log, source-site restrictions and charge cap |
 | Destination already exists | Choose another `--output`; the existing file is preserved |
 
-Offline verification: `npm test`. Tests use mocked API responses and make no Actor runs.
+Offline verification: `npm test` and `python3 -m unittest discover -s test -p 'test_python_download.py'`. Tests use mocked SDK/network responses and temporary files; they need no real token, SDK installation or Actor runs.
 
 ## Examples in this repo
 
@@ -79,7 +79,9 @@ Offline verification: `npm test`. Tests use mocked API responses and make no Act
 - Python – URL list → `files.zip`: [`python/download_images_to_zip.py`](python/download_images_to_zip.py)
 - Node – scraper dataset → ZIP saved on your computer, named by SKU: [`node/download_from_scraper_dataset.js`](node/download_from_scraper_dataset.js). Preview first; running requires an explicit USD cap.
 
-Python uses the Apify client; Node uses the documented Apify REST API. The Python recipe starts a billable run immediately when executed; use the Node preview if you want to inspect input before running.
+Python uses the Apify client; Node uses the documented Apify REST API. The Python recipe starts a billable run when executed and has no preview or spending cap; use the Node preview if you want to inspect input before running.
+
+Python reserves `files.zip` before contacting Apify and refuses existing files or symlinks. A failed start or download removes only the newly created partial file. ZIP downloads are streamed with a 512 MiB limit and a 75-second network-operation timeout; validation checks the ZIP signature, not every archive member. Inspect the existing run in Console before retrying a failure, because a run may already have incurred charges.
 
 ## Need the product rows as well as the images?
 
