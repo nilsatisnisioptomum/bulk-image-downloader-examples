@@ -47,6 +47,21 @@ node node/download_from_scraper_dataset.js YOUR_DATASET_ID \
 
 Choose your own USD cap. The script passes it as Apify's [`maxTotalChargeUsd`](https://docs.apify.com/api/v2/actors-runs-post) run limit; a cap too small for the requested files can stop the run before all files finish. It waits for `SUCCEEDED`, downloads the ZIP using your token in an Authorization header, and prints the run link. It never overwrites an existing file. Local downloads above 512 MiB are rejected; download larger archives from Console.
 
+### Recover a completed run without starting another
+
+If the downloader run succeeded but saving its ZIP failed, recover that **existing downloader Run ID** instead of repeating `--run`:
+
+```sh
+node node/download_from_scraper_dataset.js --resume-run YOUR_DOWNLOADER_RUN_ID \
+  --output recovered-images.zip
+```
+
+Resume uses `APIFY_TOKEN` from the same user account that started the run. It makes only authenticated GET requests: verify the [token account](https://docs.apify.com/api/v2/users-me-get), [existing run](https://docs.apify.com/api/v2/actor-run-get), [downloader Actor](https://docs.apify.com/api/v2/actor-get), and stored `INPUT` before downloading `OUTPUT.zip`. It never starts, restarts or resurrects an Actor, so it does not trigger a new Actor-start request or charge. Existing account storage/data-transfer usage and limits may still apply.
+
+This narrow recovery path accepts only `SUCCEEDED` runs whose stored input matches this recipe's explicit dataset workflow: dataset/field names, image-only mode, ZIP enabled, `maxFiles` from 1–5,000 and the default `OUTPUT.zip` name. Shared/organization runs with a different user ID, metamorphed runs, other input modes and custom ZIP names are unsupported. Do not combine `--resume-run` with a Dataset ID, `--run`, a charge cap or input-field flags; only `--output` is optional. New runs also accept `--max-files` from 1–5,000.
+
+A running/failed run, unavailable account access, or expired/deleted run, `INPUT` or ZIP stops with an error; there is no fallback to a paid run. Inspect Console before taking further action. Existing output files/symlinks are preserved, downloads stay limited to 512 MiB, and ZIP validation checks its signature rather than every member's integrity.
+
 If it fails, inspect the **existing run** in Console before retrying. The script never automatically retries the billable start request. Typical fixes:
 
 | Symptom | Check |
