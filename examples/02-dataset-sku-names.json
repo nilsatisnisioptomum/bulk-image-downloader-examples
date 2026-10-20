@@ -2,6 +2,6 @@
   "datasetId": "REPLACE_WITH_YOUR_DATASET_ID",
   "urlField": "imageUrl",
   "fileNameField": "sku",
-  "zipOutput": true,
+  "createZip": true,
   "maxRetries": 2
 }

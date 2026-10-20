@@ -1,8 +1,10 @@
-// Dataset product images -> an authenticated ZIP download. Node 20+, no packages.
+// Dataset or saved planner input -> an authenticated ZIP. Node 20+, no packages.
 // Preview: node node/download_from_scraper_dataset.js DATASET_ID
+// Planner: node node/download_from_scraper_dataset.js --input-json FILE.json
 // Run: add --run --max-charge-usd 0.10 (starts a billable Apify run).
 // Recover: node node/download_from_scraper_dataset.js --resume-run EXISTING_RUN_ID
 import { open, unlink, lstat } from 'node:fs/promises';
+import { constants } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -12,14 +14,82 @@ const TERMINAL = new Set(['SUCCEEDED', 'FAILED', 'TIMED-OUT', 'ABORTED']);
 const ACTIVE = new Set(['READY', 'RUNNING', 'TIMING-OUT', 'ABORTING']);
 const validId = value => typeof value === 'string' && !value.startsWith('--') && /^[A-Za-z0-9_-]{1,128}$/.test(value);
 const validField = value => typeof value === 'string' && value.trim().length > 0 && value.length <= 1024;
+const PLANNER_BYTES = 2 * 1024 * 1024;
+class PlannerInputError extends Error {}
+const plannerFail = message => { throw new PlannerInputError(message); };
+
+function validatePlannerInput(input) {
+  // Accept the current planner's five-field shape, not arbitrary Actor input.
+  const plain = value => value !== null && typeof value === 'object' && !Array.isArray(value) && Object.getPrototypeOf(value) === Object.prototype;
+  const exactKeys = (value, keys) => plain(value) && Object.keys(value).length === keys.length && keys.every(key => Object.hasOwn(value, key));
+  if (!exactKeys(input, ['urls','maxFiles','createZip','onlyImages','dedupe']) || input.createZip !== true || input.onlyImages !== true || input.dedupe !== false
+      || !Array.isArray(input.urls) || input.urls.length < 1 || input.urls.length > 1000 || input.maxFiles !== input.urls.length) {
+    plannerFail('Use the unchanged planner JSON: 1–1000 image jobs, matching maxFiles, ZIP/images enabled and dedupe false.');
+  }
+  const names = new Set();
+  for (const job of input.urls) {
+    if (!exactKeys(job, ['url','fileName']) || typeof job.url !== 'string' || job.url.length > 8192
+        || !/^https?:\/\//i.test(job.url) || /[\u0000-\u0020\u007f-\u009f\u200b\u2028-\u202e\u2066-\u2069\ufeff<>"\\]/.test(job.url) || /%(?![\da-f]{2})/i.test(job.url)) {
+      plannerFail('Every planner job must contain one complete HTTP(S) URL and filename, without extra fields.');
+    }
+    let url;
+    try { url = new URL(job.url); } catch { plannerFail('A planner job has an invalid HTTP(S) URL.'); }
+    if (url.username || url.password) plannerFail('Planner URLs containing a username or password are unsupported.');
+    if (typeof job.fileName !== 'string' || !job.fileName.trim() || Array.from(job.fileName).length > 80 || job.fileName !== job.fileName.normalize('NFKC')
+        || job.fileName.startsWith(' ') || /[^\S ]| {2,}/u.test(job.fileName) || (job.fileName.endsWith(' ') && Array.from(job.fileName).length !== 80)
+        || /[\u0000-\u001f\u007f-\u009f\u200b\u202a-\u202e\u2066-\u2069\ufeff/\\?%*:|"<>.]/.test(job.fileName)) {
+      plannerFail('Planner filenames must be safe, normalized stems of at most 80 characters.');
+    }
+    const key = job.fileName.toLowerCase();
+    if (names.has(key)) plannerFail('Planner filenames must be unique; prepare a fresh plan.');
+    names.add(key);
+  }
+  // Keep strings exact. Planner truncation can leave a space at 80 code points.
+  return input;
+}
+
+async function readPlannerInput(path) {
+  let file;
+  try {
+    try {
+      if (!constants.O_NOFOLLOW || !constants.O_NONBLOCK) plannerFail('This platform lacks the safe local-file flags required by --input-json. Use the planner JSON in Apify Console instead.');
+      file = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+      const info = await file.stat();
+      if (!info.isFile() || info.size > PLANNER_BYTES) plannerFail('Planner JSON must be a regular UTF-8 file of at most 2 MiB, not a symlink or stream.');
+      const buffer = Buffer.alloc(PLANNER_BYTES + 1);
+      let length = 0;
+      while (length < buffer.length) {
+        const { bytesRead } = await file.read(buffer, length, buffer.length - length, null);
+        if (!bytesRead) break;
+        length += bytesRead;
+      }
+      if (length > PLANNER_BYTES) plannerFail('Planner JSON exceeds the 2 MiB input limit.');
+      let input;
+      try { input = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(buffer.subarray(0, length))); }
+      catch { plannerFail('Planner JSON must be valid UTF-8 JSON; no preview or run was created.'); }
+      return validatePlannerInput(input);
+    } finally { await file?.close(); }
+  } catch (error) {
+    if (error instanceof PlannerInputError) throw error;
+    throw new PlannerInputError('Could not read planner JSON. Choose an existing regular UTF-8 file, not a symlink or stream.');
+  }
+}
 
 function validateOptions(options) {
   if (typeof options.output !== 'string' || !options.output.trim()) throw new Error('Provide a nonempty --output path.');
   if (options.resumeRun !== undefined) {
     if (!validId(options.resumeRun)) throw new Error('--resume-run requires a run ID, not a URL.');
-    if (options.run || ['datasetId', 'urlField', 'fileNameField', 'maxFiles', 'maxChargeUsd'].some(key => options[key] !== undefined)) {
+    if (options.run || ['datasetId', 'urlField', 'fileNameField', 'maxFiles', 'maxChargeUsd', 'inputJson'].some(key => options[key] !== undefined)) {
       throw new Error('Resume is a separate mode: use only --resume-run RUN_ID and optional --output.');
     }
+    return;
+  }
+  if (options.inputJson !== undefined) {
+    if (Object.getPrototypeOf(options) !== Object.prototype) throw new Error('Provide explicit planner options in a plain object.');
+    if (typeof options.inputJson !== 'string' || !options.inputJson.trim() || options.inputJson.startsWith('--')) throw new Error('--input-json requires a local JSON file.');
+    if (['datasetId','urlField','fileNameField','maxFiles'].some(key => options[key] !== undefined) || Object.keys(options).some(key => !['inputJson','output','run','maxChargeUsd'].includes(key))) throw new Error('Planner input is a separate mode; use only --input-json FILE, --output and the deliberate run/cap flags.');
+    if (options.run !== undefined && typeof options.run !== 'boolean') throw new Error('--run must be an explicit boolean choice.');
+    if ((options.run || options.maxChargeUsd !== undefined) && !(Number.isFinite(options.maxChargeUsd) && options.maxChargeUsd > 0)) throw new Error('--run requires --max-charge-usd with a positive USD amount.');
     return;
   }
   if (!validId(options.datasetId)) throw new Error('Provide the scraper Dataset ID, not a run ID or URL.');
@@ -30,21 +100,24 @@ function validateOptions(options) {
 
 export function parseArgs(args) {
   const resume = args[0] === '--resume-run';
+  const planner = args[0] === '--input-json';
   const result = resume
     ? { resumeRun: args[1], output: 'files.zip', run: false }
+    : planner ? { inputJson: args[1], output: 'files.zip', run: false }
     : { datasetId: args[0], urlField: 'images', fileNameField: 'sku', maxFiles: 100, output: 'files.zip', run: false };
   if (resume && !validId(result.resumeRun)) throw new Error('--resume-run requires a run ID, not a URL.');
-  const names = resume ? { '--output': 'output' } : { '--url-field': 'urlField', '--name-field': 'fileNameField', '--max-files': 'maxFiles', '--output': 'output', '--max-charge-usd': 'maxChargeUsd' };
+  if (planner && (!result.inputJson || result.inputJson.startsWith('--'))) throw new Error('--input-json requires a local JSON file.');
+  const names = resume ? { '--output': 'output' } : planner ? { '--output':'output', '--max-charge-usd':'maxChargeUsd' } : { '--url-field': 'urlField', '--name-field': 'fileNameField', '--max-files': 'maxFiles', '--output': 'output', '--max-charge-usd': 'maxChargeUsd' };
   const seen = new Set();
-  for (let i = resume ? 2 : 1; i < args.length; i++) {
+  for (let i = resume || planner ? 2 : 1; i < args.length; i++) {
     const option = args[i];
     if (seen.has(option)) throw new Error('Do not repeat command options.');
     seen.add(option);
     if (!resume && option === '--run') { result.run = true; continue; }
-    if (!Object.hasOwn(names, option) || !args[i + 1] || args[i + 1].startsWith('--')) throw new Error('Unknown or incomplete option. Resume accepts only --resume-run RUN_ID and optional --output.');
+    if (!Object.hasOwn(names, option) || !args[i + 1] || args[i + 1].startsWith('--')) throw new Error('Unknown or incomplete option. Choose a Dataset ID, standalone --input-json FILE, or --resume-run RUN_ID.');
     result[names[option]] = args[++i];
   }
-  if (!resume) result.maxFiles = Number(result.maxFiles);
+  if (!resume && !planner) result.maxFiles = Number(result.maxFiles);
   if (result.maxChargeUsd !== undefined) result.maxChargeUsd = Number(result.maxChargeUsd);
   validateOptions(result);
   return result;
@@ -66,7 +139,10 @@ function validateStoredInput(input) {
 
 export async function downloadDataset(options, { token, fetchImpl = fetch, now = Date.now, sleepImpl = ms => new Promise(done => setTimeout(done, ms)), openFile = open } = {}) {
   validateOptions(options);
-  if (!options.run && !options.resumeRun) return { preview: true, input: actorInput(options), output: options.output };
+  const input = options.resumeRun ? undefined : options.inputJson !== undefined ? await readPlannerInput(options.inputJson) : actorInput(options);
+  if (!options.run && !options.resumeRun) return options.inputJson !== undefined
+    ? { preview:true, mode:'planner-json', fileCount:input.urls.length, maxFiles:input.maxFiles, createZip:true, onlyImages:true, dedupe:false }
+    : { preview: true, input, output: options.output };
   if (!token) throw new Error('Set APIFY_TOKEN in your environment. Never put it in the command or a URL.');
   // Reserve before any API call. Refuse existing files and symlinks; owner-only mode.
   const outputPath = resolve(options.output);
@@ -113,7 +189,7 @@ export async function downloadDataset(options, { token, fetchImpl = fetch, now =
     } else {
       const params = new URLSearchParams({ waitForFinish: '60', timeout: '300', maxTotalChargeUsd: String(options.maxChargeUsd) });
       // Do not retry this POST: a lost response could create a second paid run.
-      run = await json(`/actors/${ACTOR}/runs?${params}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(actorInput(options)) });
+      run = await json(`/actors/${ACTOR}/runs?${params}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
       if (!validId(run?.id)) throw new Error('Apify did not return a valid run ID. Check Console before retrying.');
       const runId = run.id;
       const deadline = now() + 360_000;
