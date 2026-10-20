@@ -6,6 +6,6 @@
   "onlyImages": true,
   "referer": "https://www.w3.org/",
   "userAgent": "Mozilla/5.0 (compatible; GPTShopBulkDownloader/1.0)",
-  "zipOutput": true,
+  "createZip": true,
   "maxRetries": 2
 }

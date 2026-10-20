@@ -20,6 +20,28 @@ Have image links in a CSV on your computer? Use the free [image download planner
 
 The planner checks URL format, not whether links are reachable or return images. It does not download images or start an Actor run. When you are ready to use the generated input, open the downloader on your own Apify account and review its [current pricing](https://apify.com/chris_elder/bulk-file-downloader/pricing), Actor-start charge and **Max cost per run** before starting.
 
+### From your saved planner JSON to a local ZIP
+
+After choosing your CSV columns and reviewing the planner's notes, download **Apify input JSON** (`apify-image-download-input.json`). With **Node.js 20+**, preview that local file from this repository without installing packages:
+
+```sh
+# Offline: aggregate counts/settings only. No token, API request or output file.
+node node/download_from_scraper_dataset.js --input-json apify-image-download-input.json
+```
+
+The JSON must be a regular UTF-8 file of at most 2 MiB, containing the planner's exact five fields: `urls`, `maxFiles`, `createZip: true`, `onlyImages: true` and `dedupe: false`. It accepts 1–1,000 `{url, fileName}` jobs, unique safe filename stems and a `maxFiles` equal to the job count. Symlink/stream inputs, extra fields and other Actor input modes are rejected; this mode also stops if the platform lacks the required safe file-open flags. The preview prints no image URLs, filenames or signed query values. Keep the JSON private: it still contains those values.
+
+To deliberately start **one billable downloader run**, set `APIFY_TOKEN` in your local environment as described below, review the Store pricing, and add both run flags:
+
+```sh
+node node/download_from_scraper_dataset.js --input-json apify-image-download-input.json \
+  --output product-images.zip --run --max-charge-usd 0.10
+```
+
+Choose your own USD cap. The script sends it as Apify's `maxTotalChargeUsd`; the planner's `maxFiles` is a file-count limit, not a spending limit. Starting shares the JSON's URLs and filenames with Apify and can incur Actor-start and download charges. Exact URL query strings and planned filename strings are submitted unchanged, including leading zeros and separate jobs sharing an image. The Actor still applies its filename, extension and collision rules; the script does not check reachability or guarantee that a URL returns an image.
+
+It waits for success and saves `OUTPUT.zip` locally using the same authenticated, bounded, no-overwrite download as the dataset recipe. A failed or ambiguous start is never automatically repeated. If saving fails after a planner run starts, inspect that **existing run** in Console and download its output there before considering another run. The narrow `--resume-run` mode below continues to support dataset-mode runs only; planner URL-list runs are not supported by that recovery command.
+
 ## First ZIP from your scraper dataset
 
 Requires **Node.js 20+**, no package install. From the repository root:
